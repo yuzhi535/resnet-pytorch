@@ -4,8 +4,8 @@ import torch
 import torch.nn as nn
 import pytorch_lightning as pl
 import torchmetrics
-import dataloader
-import network
+from dataloader import get_CIFAdataset_loader
+from network import Restnet34
 from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor, ModelCheckpoint
 
 
@@ -18,8 +18,8 @@ def arg_parser():
                         default=4, required=True, help='number of workers')
     # parser.add_argument('--resume', '-r', type=str,
     #                     required=False, help='resume a train')
-    # parser.add_argument('--device', type=str,
-    #                     help='gpu or cpu', choices=['gpu', 'cpu'], default='gpu')
+    parser.add_argument('--device', type=str,
+                        help='gpu or cpu', choices=['gpu', 'cpu'], default='gpu')
     parser.add_argument('--num-classes', '-nc', type=int,
                         help='number of classes', required=True)
     parser.add_argument('--lr', '-lr', type=float, default=1e-4)
@@ -32,14 +32,16 @@ def arg_parser():
 
 # 配置训练步骤
 class MyResnet(pl.LightningModule):
-    def __init__(self, net, num_classes=10,
-                 lr=1e-4) -> None:
+    def __init__(self, net, train_dataloader, val_dataloader, test_dataloader,num_classes=10,
+                 lr=1e-4, ) -> None:
         super(MyResnet, self).__init__()
         self.net = net
         # self.save_hyperparameters(ignore=['criterion', 'net'])
         self.criterion = nn.CrossEntropyLoss()
         self.lr = lr
         self.acc = torchmetrics.Accuracy(num_classes=num_classes)
+        
+        self.train_dataloader, self.val_dataloader, self.test_dataloader = train_dataloader, val_dataloader, test_dataloader
 
         # 损失函数
         self.criterion = nn.CrossEntropyLoss()
@@ -91,17 +93,27 @@ class MyResnet(pl.LightningModule):
 
     def val_dataloader(self):
         return self.val_dataloader
+    
+    def test_dataloader(self):
+        return self.test_dataloader
 
 
-def train(epochs, bs, nw, lr, num_classes):
+
+def train(epochs, bs, nw, lr, num_classes, device):
 
     pl.seed_everything(42)
 
-    net = network.Restnet34(num_classes)
+    net = Restnet34(num_classes)
+    
+    # 设置数据集加载，由于CIFA-10本身pytorch自带有，所以这里比较简单
+    train_dataloader, val_dataloader, test_dataloader = \
+        get_CIFAdataset_loader(
+            root='./data/CIFA', batch_size=bs, num_workers=nw, pin_memory=True, valid_rate=0.2, shuffle=True)
+    
+    
     model = MyResnet(net=net, num_classes=num_classes,
-                     lr=lr)
+                     lr=lr, train_dataloader=train_dataloader, val_dataloader=val_dataloader, test_dataloader=test_dataloader)
 
-    device = 'gpu' if torch.cuda.is_available else 'cpu'
 
     early_stop_callback = EarlyStopping(
         monitor="acc", min_delta=0.0, patience=30, verbose=True, mode="max")
@@ -124,16 +136,11 @@ def train(epochs, bs, nw, lr, num_classes):
                              early_stop_callback,
                          ],
                          )
-
+    
     trainer.logger._default_hp_metric = None
 
     resume_path = None
-
-    # 设置数据集加载，由于CIFA-10本身pytorch自带有，所以这里比较简单
-    trainer.train_dataloader, trainer.val_dataloaders, trainer.test_dataloaders = \
-        dataloader.get_CIFAdataset_loader(
-            root='./data/CIFA', batch_size=bs, num_workers=nw, pin_memory=True, valid_rate=0.2, shuffle=True)
-
+    
     trainer.fit(model=model, ckpt_path=resume_path)
 
 
@@ -141,9 +148,9 @@ if __name__ == '__main__':
     args = arg_parser()
     bs = args.batch_size
     num_workers = args.num_workers
-    # device = args.device
+    device = args.device
     num_classes = args.num_classes
     lr = args.num_classes
     epochs = args.epochs
 
-    train(epochs, bs, num_workers, lr, num_classes)
+    train(epochs, bs, num_workers, lr, num_classes, device=device)

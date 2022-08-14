@@ -7,9 +7,6 @@ from torchvision import transforms
 # from sklearn.model_selection import train_test_split
 
 
-
-
-
 def get_CIFAdataset_loader(root, batch_size, num_workers, pin_memory, valid_rate, shuffle: bool, random_seed=42, augment=True):
     # 引入分割CIFA数据集的包，分割数据为训练集和验证集
     from torch.utils.data.sampler import SubsetRandomSampler
@@ -83,3 +80,4 @@ def get_CIFAdataset_loader(root, batch_size, num_workers, pin_memory, valid_rate
     )
 
     return train_loader, valid_loader, test_loader
+

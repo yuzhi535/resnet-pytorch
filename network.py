@@ -1,8 +1,7 @@
-from operator import truediv
-from turtle import forward
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+from timm.models.layers import trunc_normal_
 
 
 # 基本块
@@ -92,6 +91,17 @@ class Resnet(nn.Module):
                                          chan[i], 2 if i != 0 else 1)
 
         self.fc = nn.Linear(chan[-1], num_classes)
+
+        self.apply(self._init_weights)
+
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            trunc_normal_(m.weight, std=.02)
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
 
     def _make_block(self, num_layer, chan, stride):
         layer = []

@@ -1,0 +1,4 @@
+pytorch-lightning
+torch>=1.9
+torchvision>=0.7.0
+albumentations

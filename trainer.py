@@ -169,6 +169,7 @@ def train(net, opt, epochs, batch_size, num_workers, device, num_classes, model=
     writer = SummaryWriter(log_dir)
 
     net.to(device)
+    init_weights(net, 'kaiming')
 
     best = 0.0
 

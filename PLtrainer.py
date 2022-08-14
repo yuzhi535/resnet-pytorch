@@ -1,4 +1,5 @@
 import argparse
+from pydoc import Helper
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
@@ -11,13 +12,15 @@ from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor, Mode
 def arg_parser():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--batch-size', type=int, default=16, required=True)
-    parser.add_argument('--num-workers', type=int, default=4, required=True)
+    parser.add_argument('--batch-size', '-bs', type=int,
+                        default=16, required=True, help='input batch size')
+    parser.add_argument('--num-workers', '-nw',  type=int,
+                        default=4, required=True, help='number of workers')
     # parser.add_argument('--resume', '-r', type=str,
     #                     required=False, help='resume a train')
-    parser.add_argument('--device', type=str,
-                        help='gpu or cpu', choices=['gpu', 'cpu'], default='gpu')
-    parser.add_argument('--num-classes', type=int,
+    # parser.add_argument('--device', type=str,
+    #                     help='gpu or cpu', choices=['gpu', 'cpu'], default='gpu')
+    parser.add_argument('--num-classes', '-nc', type=int,
                         help='number of classes', required=True)
     parser.add_argument('--lr', '-lr', type=float, default=1e-4)
     parser.add_argument('--epochs', type=int,
@@ -34,19 +37,21 @@ class MyResnet(pl.LightningModule):
         super(MyResnet, self).__init__()
         self.net = net
         # self.save_hyperparameters(ignore=['criterion', 'net'])
-        self.criterion = nn.CrossEntropyLoss.to(self.device)
+        self.criterion = nn.CrossEntropyLoss()
         self.lr = lr
         self.acc = torchmetrics.Accuracy(num_classes=num_classes)
+
+        # 损失函数
+        self.criterion = nn.CrossEntropyLoss()
 
     def forward(self, x):
         return self.net(x)
 
     def training_step(self, batch, batch_idx):
         x, y,  = batch
-        y = torch.squeeze(y, dim=1)
 
-        x = x.to(self.device, torch.float)
-        y = y.to(self.device, dtype=torch.long)
+        x = x.to(self.device)
+        y = y.to(self.device)
         x = self(x)
         loss = self.criterion(x, y)
         self.log('loss', loss,
@@ -56,10 +61,9 @@ class MyResnet(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y, = batch
-        y = torch.squeeze(y, dim=1)
 
-        x = x.to(self.device, torch.float)
-        y = y.to(self.device, torch.long)
+        x = x.to(self.device)
+        y = y.to(self.device)
         pred = self(x)
         self.acc.update(pred, y)
         loss = self.criterion(x, y)
@@ -88,15 +92,14 @@ class MyResnet(pl.LightningModule):
     def val_dataloader(self):
         return self.val_dataloader
 
-    def configure_optimizers(self):
-
-        return super().configure_optimizers()
-
 
 def train(epochs, bs, nw, lr, num_classes):
+
+    pl.seed_everything(42)
+
     net = network.Restnet34(num_classes)
     model = MyResnet(net=net, num_classes=num_classes,
-                    lr=lr)
+                     lr=lr)
 
     device = 'gpu' if torch.cuda.is_available else 'cpu'
 
@@ -121,13 +124,15 @@ def train(epochs, bs, nw, lr, num_classes):
                              early_stop_callback,
                          ],
                          )
-    
+
     trainer.logger._default_hp_metric = None
 
     resume_path = None
-    
+
     # 设置数据集加载，由于CIFA-10本身pytorch自带有，所以这里比较简单
-    trainer.train_dataloader, trainer.val_dataloaders, trainer.test_dataloaders = dataloader.get_CIFAdataset_loader(root='./data/CIFA', batch_size=bs, num_workers=nw)
+    trainer.train_dataloader, trainer.val_dataloaders, trainer.test_dataloaders = \
+        dataloader.get_CIFAdataset_loader(
+            root='./data/CIFA', batch_size=bs, num_workers=nw, pin_memory=True, valid_rate=0.2, shuffle=True)
 
     trainer.fit(model=model, ckpt_path=resume_path)
 

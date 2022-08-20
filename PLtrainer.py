@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import pytorch_lightning as pl
 import torchmetrics
-from dataloader import get_CIFAdataset_loader
+from utils.dataloader import get_CIFAdataset_loader
 from network import Restnet34
 from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor, ModelCheckpoint
 

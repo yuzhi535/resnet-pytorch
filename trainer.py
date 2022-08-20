@@ -5,11 +5,11 @@ import torchmetrics
 from argparse import ArgumentParser
 import torch.nn as nn
 from tqdm import tqdm
-from dataloader import get_CIFAdataset_loader
+from utils.dataloader import get_CIFAdataset_loader
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
-from network import Resnet, Restnet34
-
+from networks.resnet import Resnet, Restnet34
+from networks.vgg import VGG16
 
 # 初始化权重
 def weights_init_normal(m, bias=0.0):
@@ -226,7 +226,8 @@ if __name__ == '__main__':
     num_classes = 10  # args.num_classes
     lr = 0.001  # args.num_classes
     epochs = 10  # args.epochs
-    net = Resnet(num_classes, [3, 4, 6, 3], [16, 32, 64, 128])
+    # net = Resnet(num_classes, [3, 4, 6, 3], [16, 32, 64, 128])
+    net = VGG16()
     opt = torch.optim.Adam(net.parameters(), lr=lr)
     seed_everything(42)
     train(net=net, epochs=epochs, batch_size=bs, num_workers=num_workers,

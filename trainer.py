@@ -5,11 +5,11 @@ import torchmetrics
 from argparse import ArgumentParser
 import torch.nn as nn
 from tqdm import tqdm
-from utils.dataloader import get_CIFAdataset_loader
+from utils.utils.dataloader import get_CIFAdataset_loader
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 from networks.resnet import Resnet, Restnet34
-from networks.vgg import VGG16
+
 
 # 初始化权重
 def weights_init_normal(m, bias=0.0):

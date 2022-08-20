@@ -62,12 +62,12 @@ class BasicLayerX3(nn.Module):
         self.act = nn.ReLU()
 
         if down_sample:
-            self.down_sample = nn.Sequential(
+            self.shortcut = nn.Sequential(
                 nn.Conv2d(in_chan, out_chan, 1, stride, bias=False),
                 nn.BatchNorm2d(out_chan),
             )
         else:
-            self.down_sample = nn.Identity()
+            self.shortcut = nn.Identity()
 
     def forward(self, x):
         return self.act(self.conv(x)+self.shortcut(x))

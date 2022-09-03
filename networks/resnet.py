@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from timm.models.layers import trunc_normal_
+from einops.layers.torch import Rearrange
 
 
 # 基本块
@@ -24,7 +25,7 @@ class BasicLayerX2(nn.Module):
         out_chan = in_chan
         in_chan = in_chan // 2 if down_sample else in_chan
 
-        print(f'in_chan={in_chan}, out_chan={out_chan}')
+        # print(f'in_chan={in_chan}, out_chan={out_chan}')
 
         self.conv = nn.Sequential(
             Conv(in_chan, out_chan, stride),
@@ -90,7 +91,13 @@ class Resnet(nn.Module):
             self.net += self._make_block(num_layers[i],
                                          chan[i], 2 if i != 0 else 1)
 
-        self.fc = nn.Linear(chan[-1], num_classes)
+        self.fc = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            Rearrange('b c h w -> b (c h w)'),
+            nn.Linear(chan[-1], num_classes)
+        )
+        
+        
 
         self.apply(self._init_weights)
 
@@ -121,15 +128,12 @@ class Resnet(nn.Module):
         out = self.first_conv(x)
         for net in self.net:
             out = net(out)
-
-        out = F.avg_pool2d(out, out.shape[2])
-        out = out.reshape(out.shape[0], -1)
         out = self.fc(out)
 
         return out
 
 
-class Restnet34(nn.Module):
+class Resnet34(nn.Module):
     def __init__(self, num_classes) -> None:
         super().__init__()
 
@@ -142,6 +146,6 @@ class Restnet34(nn.Module):
 if __name__ == '__main__':
     x = torch.randn(2, 3, 32, 32)
 
-    net = Restnet34(10)
+    net = Resnet34(10)
     out = net(x)
     print(out.shape)
